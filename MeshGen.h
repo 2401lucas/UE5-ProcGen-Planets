@@ -8,6 +8,34 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "MeshGen.generated.h"
+
+USTRUCT(BlueprintType)
+struct FNoiseSettings
+{
+	GENERATED_BODY()
+	
+	FNoiseSettings(){}
+	
+	UPROPERTY(EditAnywhere)
+	float amplitude = 1;
+	UPROPERTY(EditAnywhere)
+	float noiseScale = 1;
+	UPROPERTY(EditAnywhere)
+	float power = 1;
+	UPROPERTY(EditAnywhere)
+	int frequency = 1;
+	UPROPERTY(EditAnywhere)
+	float lacunarity = 2;
+	UPROPERTY(EditAnywhere)
+	float persistence = 0.5;
+	UPROPERTY(EditAnywhere)
+	float elevation = 0;
+	UPROPERTY(EditAnywhere)
+	float density = 0;
+	UPROPERTY(EditAnywhere)
+	FVector offset = FVector(0,0,0);
+};
+
 UCLASS()
 class PROCEDURALPLANET_API AMeshGen : public AActor
 {
@@ -16,8 +44,25 @@ class PROCEDURALPLANET_API AMeshGen : public AActor
 public:	
 	// Sets default values for this actor's properties
 	AMeshGen();
-	int numHorizontalSegments = 100;
-	int numVerticalSegments = 100;
+	UPROPERTY(EditAnywhere)
+	int recursionLevel = 4;
+	UPROPERTY(EditAnywhere)
+	int radius = 100;
+	UPROPERTY(EditAnywhere)
+	float rotationSpeed = 36;
+	UPROPERTY(EditAnywhere)
+	FNoiseSettings shapeNoise;
+	UPROPERTY(EditAnywhere)
+	FNoiseSettings surfaceNoise;
+	UPROPERTY(EditAnywhere)
+	FNoiseSettings craterNoise;
+	UPROPERTY(EditAnywhere)
+	FNoiseSettings ridgeNoise;
+	UPROPERTY(EditAnywhere)
+	bool hasOceans;
+	UPROPERTY(EditAnywhere)
+	float oceanFloorHeight;
+	
 private:
 	UStaticMeshComponent *_smComp;
 protected:
@@ -33,4 +78,6 @@ private:
 	void CreateFace(FMeshDescriptionBuilder*& meshDescBuilder, TArray<FVertexInstanceID>*& vertexInsts, FVertexID pointA,FVertexID pointB,FVertexID pointC, FVector2d uv, FVector4f colour);
 	void CreateFaceRec(FMeshDescriptionBuilder*& meshDescBuilder, TArray<FVertexInstanceID>*& vertexInsts, FVertexID pointA, FVertexID pointB, FVertexID pointC, FVector2d uv, FVector4f colour);
 	FVertexID GetMiddlePoint(FMeshDescriptionBuilder*& meshDescBuilder, FVertexID p1, FVertexID p2);
+	float GetNoise(FVector pos);
 };
+

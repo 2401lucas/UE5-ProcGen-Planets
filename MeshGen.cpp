@@ -8,7 +8,7 @@
 AMeshGen::AMeshGen()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	//PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = true;
 	_smComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("smComp"), false);
 	SetRootComponent(_smComp);
 }
@@ -51,8 +51,9 @@ void AMeshGen::BeginPlay()
 
 	for(int i = 0; i < rectPosArray.Num(); i++)
 	{
+		// Normalize to keep distance from radius 1;
 		rectPosArray[i].Normalize();
-		vertexIDs[i] = meshDescBuilder->AppendVertex(rectPosArray[i]);
+		vertexIDs[i] = meshDescBuilder->AppendVertex(rectPosArray[i] * radius);
 	}
 	
 	TArray<FVertexInstanceID>* vertexInsts = new TArray<FVertexInstanceID>();
@@ -109,7 +110,6 @@ void AMeshGen::BeginPlay()
 	
 	// Assign new static mesh to the static mesh component
 	_smComp->SetStaticMesh(staticMesh);
-	_smComp->SetWorldScale3D(FVector(10, 10, 10));
 }
 
 void AMeshGen::CreateFace(FMeshDescriptionBuilder*& meshDescBuilder, TArray<FVertexInstanceID>*& vertexInsts, FVertexID pointA, FVertexID pointB, FVertexID pointC, FVector2d uv, FVector4f colour)
@@ -120,6 +120,7 @@ void AMeshGen::CreateFace(FMeshDescriptionBuilder*& meshDescBuilder, TArray<FVer
 	meshDescBuilder->SetInstanceNormal(instanceA, normal);
 	//meshDescBuilder->SetInstanceUV(instanceA, FVector2D(0, 1), 0);
 	meshDescBuilder->SetInstanceColor(instanceA, colour);
+	// meshDescBuilder->SetInstanceTangentSpace(instanceA, colour);
 	vertexInsts->Add(instanceA);
 	
 	FVertexInstanceID instanceB = meshDescBuilder->AppendInstance(pointB);
@@ -141,11 +142,9 @@ void AMeshGen::CreateFaceRec(FMeshDescriptionBuilder*& meshDescBuilder, TArray<F
 	faces.Add(pointA);
 	faces.Add(pointB);
 	faces.Add(pointC);
-
-	UE_LOG(LogTemp, Warning, TEXT("ID A: %a ID B: %b ID C: %c"), pointA, pointB, pointC);
 	
 	//Smooths Faces
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < recursionLevel; i++)
 	{
 		TArray<FVertexID> newFaces;
 		
@@ -181,22 +180,9 @@ void AMeshGen::CreateFaceRec(FMeshDescriptionBuilder*& meshDescBuilder, TArray<F
 	}
 }
 
-// return index of point in the middle of p1 and p2
+// returns index of point in the middle of p1 and p2
 FVertexID AMeshGen::GetMiddlePoint(FMeshDescriptionBuilder*& meshDescBuilder, FVertexID p1, FVertexID p2)
 {
-	// first check if we have it already
-	//bool firstIsSmaller = p1 < p2;
-	// FVertexID smallerIndex = firstIsSmaller ? p1 : p2;
-	// FVertexID greaterIndex = !firstIsSmaller ?  p1 : p2;
-	// int key = (smallerIndex << 32) + greaterIndex;
-	//
-	// int ret;
-	// if (this.middlePointIndexCache.TryGetValue(key, out ret))
-	// {
-	// 	return ret;
-	// }
-
-	// not in cache, calculate it
 	FVector point1 = meshDescBuilder->GetPosition(p1);
 	FVector point2 = meshDescBuilder->GetPosition(p2);
 	FVector middle = FVector(
@@ -205,13 +191,66 @@ FVertexID AMeshGen::GetMiddlePoint(FMeshDescriptionBuilder*& meshDescBuilder, FV
 		(point1.Z + point2.Z) / 2.0);
 
 	
-	// add vertex makes sure point is on unit sphere
+	// Normalize to keep distance from radius 1;
 	middle.Normalize();
-	
-	FVertexID middleId = meshDescBuilder->AppendVertex(middle);
-	// store it, return index
-	// this.middlePointIndexCache.Add(key, i);
+	FVector noise = middle * radius + middle * GetNoise(middle);
+	FVertexID middleId = meshDescBuilder->AppendVertex(noise);
+
 	return middleId;
+}
+
+float AMeshGen::GetNoise(FVector pos)
+{
+	float height = 0;
+	
+	//Shape Noise
+	float shapeNoiseFreq = 1;
+	float shapeNoiseAmp = shapeNoise.amplitude;
+	for(int f = 0; f < shapeNoise.frequency; f++)
+	{
+		height += FMath::PerlinNoise3D((pos + shapeNoise.offset)/ shapeNoise.noiseScale * shapeNoiseFreq) * shapeNoiseAmp;
+
+		shapeNoiseAmp *= shapeNoise.persistence;
+		shapeNoiseFreq *= shapeNoise.lacunarity;
+	}
+	
+	//Surface Noise
+	float surfaceNoiseFreq = 1;
+	float surfaceNoiseAmp = surfaceNoise.amplitude;
+	for(int f = 0; f < surfaceNoise.frequency; f++)
+	{
+		height += FMath::PerlinNoise3D((pos + surfaceNoise.offset)/ surfaceNoise.noiseScale * surfaceNoiseFreq) * surfaceNoiseAmp;
+
+		surfaceNoiseAmp *= surfaceNoise.persistence;
+		surfaceNoiseFreq *= surfaceNoise.lacunarity;
+	}
+
+	//Crater Noise
+	float craterNoiseFreq = 1;
+	float craterNoiseAmp = craterNoise.amplitude;
+	for(int f = 0; f < craterNoise.frequency; f++)
+	{
+		float crater = FMath::Abs(FMath::Pow(FMath::PerlinNoise3D(pos / craterNoise.noiseScale * craterNoiseFreq) * craterNoiseAmp, craterNoise.power));
+		height -= crater > craterNoise.density? crater : 0;
+		
+		craterNoiseAmp *= craterNoise.persistence;
+		craterNoiseFreq *= craterNoise.lacunarity;
+	}
+	
+	//Flatten Ocean bed
+	if (hasOceans)
+	{
+		if (height <= -8 && height > -13)
+		{
+			height = FMath::Pow(height + 13, 2) - 34;
+		}
+		else if (height <= -13)
+		{
+			height = (height * 0.3) - 30;
+		}
+	}	
+	
+	return height;
 }
 
 FVector AMeshGen::CalculateNormal(FMeshDescriptionBuilder*& meshDescBuilder,FVertexID pointA, FVertexID pointB, FVertexID pointC)
