@@ -27,7 +27,7 @@ In order to smooth the Icosahedron further, we can run the smoothing algorithm r
 ## The Importance of cashing Vertices
 When generating Vertices, they register the with the FMeshDescriptionBuilder. If Vertex positions aren't cashed, each triangle will register their vertices even if other triangles share them and have already registered them. When cashing vertices, if the vertex is not found it is registered, if it is found the cashe would return the VertexID. Cashing vertices generates (Vertices Count - 2 * 6) extra vertices, quickly adding up. 
 ```
-Recursion Level |    Vertices   |     Triangles  | Triangle Points Without Cashing Vertices
+Recursion Level |    Vertices   |     Triangles  | Vertices Without a Cache
         0       |    12         |     20         |        60
         1       |    42         |     80         |        240
         2       |    162        |     320        |        960
