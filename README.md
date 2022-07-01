@@ -67,5 +67,4 @@ To modify the shape of a planet, we use  an extremely low scaled noise with a hi
 ![image](https://user-images.githubusercontent.com/32739337/176922315-60aec632-e200-472e-9137-e520c5767f36.png)
 
 ## TODO
-Cashe Generated Vertices
-Adding Colours
+Add Colours
