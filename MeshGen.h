@@ -64,6 +64,7 @@ public:
 	float oceanFloorHeight;
 	
 private:
+	TMap<FVector, FVertexID> vertexCache;
 	UStaticMeshComponent *_smComp;
 protected:
 	// Called when the game starts or when spawned

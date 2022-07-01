@@ -2,6 +2,7 @@
 
 
 #include "MeshGen.h"
+#include <string>
 
 
 // Sets default values
@@ -193,10 +194,21 @@ FVertexID AMeshGen::GetMiddlePoint(FMeshDescriptionBuilder*& meshDescBuilder, FV
 	
 	// Normalize to keep distance from radius 1;
 	middle.Normalize();
+	
 	FVector noise = middle * radius + middle * GetNoise(middle);
-	FVertexID middleId = meshDescBuilder->AppendVertex(noise);
+	FVertexID id;
+	
+	if (vertexCache.Contains(noise))
+	{
+		id = vertexCache[noise];
+	}
+	else
+	{
+		id = meshDescBuilder->AppendVertex(noise);
+		vertexCache.Add({noise, id});
+	}
 
-	return middleId;
+	return id;
 }
 
 float AMeshGen::GetNoise(FVector pos)
